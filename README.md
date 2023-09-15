@@ -651,7 +651,7 @@ plot_lr_vs_loss(epochs=EPOCHS, lr_loss_logger=lr_loss_logger)
 
 
     
-![png](LSTM_new_files/LSTM_new_19_1.png)
+![png](LSTM_files/LSTM_new_19_1.png)
     
 
 
@@ -1081,13 +1081,13 @@ plot_series_dual_y(
 
 
     
-![png](LSTM_new_files/LSTM_new_23_0.png)
+![png](LSTM_files/LSTM_new_23_0.png)
     
 
 
 
     
-![png](LSTM_new_files/LSTM_new_23_1.png)
+![png](LSTM_files/LSTM_new_23_1.png)
     
 
 
@@ -1100,7 +1100,7 @@ plot_training_validation_metrics(history, "Training and Validation progress over
 
 
     
-![png](LSTM_new_files/LSTM_new_25_0.png)
+![png](LSTM_files/LSTM_new_25_0.png)
     
 
 
@@ -1123,7 +1123,7 @@ plot_normalized_confusion_matrix(X_test, y_test_oh, model, LABELS)
 
 
     
-![png](LSTM_new_files/LSTM_new_27_1.png)
+![png](LSTM_files/LSTM_new_27_1.png)
     
 
 
@@ -1135,7 +1135,7 @@ plot_normalized_confusion_matrix(X_test, y_test_oh, model, LABELS)
 ```
 
     [NbConvertApp] Converting notebook LSTM_new.ipynb to markdown
-    [NbConvertApp] Support files will be in LSTM_new_files/
+    [NbConvertApp] Support files will be in LSTM_files/
     [NbConvertApp] Making directory LSTM_new_files
     [NbConvertApp] Making directory LSTM_new_files
     [NbConvertApp] Making directory LSTM_new_files
