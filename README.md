@@ -1,4 +1,47 @@
+## Introduction:
+This work expands upon the efforts of Guillaume Chevalier:
+> Guillaume Chevalier, LSTMs for Human Activity Recognition, 2016,
+> https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition
 
+Guillaume used a TensorFlow version 1.x model that achieved 91% accuracy to classify motion data. In this notebook I have reused code from their introduction and data wrangling efforts, before defining my own CNN-DNN model with TensorFlow version 2. Sections that used Guillaume's code are annotated for clarity.
+
+My model achieved 92.1% accuracy with validation data. Reviewing graphs, you will se that training and validation accuracies remain relatively in sync, which suggests minimal overfitting.
+
+
+
+
+
+## Setup Environment for Running in Google Colab
+This step is done because some local environments may not have a GPU, and so running this notebook in colab allows users to mount a T4 GPU cheaply in order to speed up the training process
+
+
+```python
+import os
+
+try:
+    from google.colab import drive
+
+    # Mount Google Drive
+    drive.mount('/content/drive')
+
+    # Change to what you expect to be the notebook's directory
+    # based on your common directory structure
+    GITHUB_FOLDER_PATH = '/content/drive/My Drive/Colab_Notebooks/github/'
+    REPO_NAME = 'LSTM-Human-Activity-Recognition'
+    os.chdir(os.path.join(GITHUB_FOLDER_PATH, REPO_NAME))
+    print(f"Changed directory to {os.getcwd()}")
+
+except ImportError:
+    # Local environment (like running in VS Code)
+    notebook_path = os.getcwd()
+    print(f"Running on local machine, current directory is {notebook_path}")
+```
+
+    Drive already mounted at /content/drive; to attempt to forcibly remount, call drive.mount("/content/drive", force_remount=True).
+    Changed directory to /content/drive/My Drive/Colab_Notebooks/github/LSTM-Human-Activity-Recognition
+
+
+### (Authored by Guillaume Chevalier)
 # <a title="Activity Recognition" href="https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition" > LSTMs for Human Activity Recognition</a>
 
 Human Activity Recognition (HAR) using smartphones dataset and an LSTM RNN. Classifying the type of movement amongst six categories:
@@ -36,7 +79,7 @@ That said, I will use the almost raw data: only the gravity effect has been filt
 
 As explained in [this article](http://karpathy.github.io/2015/05/21/rnn-effectiveness/), an RNN takes many input vectors to process them and output other vectors. It can be roughly pictured like in the image below, imagining each rectangle has a vectorial depth and other special hidden quirks in the image below. **In our case, the "many to one" architecture is used**: we accept time series of [feature vectors](https://www.quora.com/What-do-samples-features-time-steps-mean-in-LSTM/answer/Guillaume-Chevalier-2) (one vector per [time step](https://www.quora.com/What-do-samples-features-time-steps-mean-in-LSTM/answer/Guillaume-Chevalier-2)) to convert them to a probability vector at the output for classification. Note that a "one to one" architecture would be a standard feedforward neural network.
 
-> [![RNN Architectures](https://raw.githubusercontent.com/Neuraxio/Machine-Learning-Figures/master/rnn-architectures.png)](https://www.dl-rnn-course.neuraxio.com/start?utm_source=github_lstm)
+> <a href="https://www.dl-rnn-course.neuraxio.com/start?utm_source=github_lstm" ><img src="https://raw.githubusercontent.com/Neuraxio/Machine-Learning-Figures/master/rnn-architectures.png" /></a>
 > [Learn more on RNNs](https://www.dl-rnn-course.neuraxio.com/start?utm_source=github_lstm)
 
 ## What is an LSTM?
@@ -45,22 +88,56 @@ An LSTM is an improved RNN. It is more complex, but easier to train, avoiding wh
 
 > [Learn more on LSTMs](https://www.dl-rnn-course.neuraxio.com/start?utm_source=github_lstm)
 
-## Results
 
-Scroll on! Nice visuals awaits.
+
+### (Authored by Nick Van Nest)
+## Import Packages
+
+
+```python
+import sys
+sys.executable
+```
+
+
+
+
+    '/usr/bin/python3'
+
+
 
 
 ```python
 # All Includes
+import sys
+!{sys.executable} -m pip install scikit_learn
+
 
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf  # Version 1.0.0 (some previous versions are used in past commits)
 from sklearn import metrics
+from tensorflow.keras import regularizers
+
+from tensorflow.keras.models import Model
+import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 import os
 ```
+
+    Requirement already satisfied: scikit_learn in /usr/local/lib/python3.10/dist-packages (1.2.2)
+    Requirement already satisfied: numpy>=1.17.3 in /usr/local/lib/python3.10/dist-packages (from scikit_learn) (1.23.5)
+    Requirement already satisfied: scipy>=1.3.2 in /usr/local/lib/python3.10/dist-packages (from scikit_learn) (1.11.2)
+    Requirement already satisfied: joblib>=1.1.1 in /usr/local/lib/python3.10/dist-packages (from scikit_learn) (1.3.2)
+    Requirement already satisfied: threadpoolctl>=2.0.0 in /usr/local/lib/python3.10/dist-packages (from scikit_learn) (3.2.0)
+
+
+### (Modified work taken from Guillaume Chevalier)
+## Define Constants to Describe Input Data Features and Labels
 
 
 ```python
@@ -88,15 +165,13 @@ LABELS = [
     "STANDING",
     "LAYING"
 ]
-
 ```
 
+### (Modified work taken from Guillaume Chevalier)
 ## Let's start by downloading the data:
 
 
 ```python
-# Note: Linux bash commands start with a "!" inside those "ipython notebook" cells
-
 DATA_PATH = "data/"
 
 !pwd && ls
@@ -114,47 +189,43 @@ print("\n" + "Dataset is now located at: " + DATASET_PATH)
 
 ```
 
-    /home/ubuntu/pynb/LSTM-Human-Activity-Recognition
-    data	 LSTM_files  LSTM_OLD.ipynb  README.md
-    LICENSE  LSTM.ipynb  lstm.py	     screenlog.0
-    /home/ubuntu/pynb/LSTM-Human-Activity-Recognition/data
-    download_dataset.py  source.txt
-
+    /content/drive/My Drive/Colab_Notebooks/github/LSTM-Human-Activity-Recognition
+    data		     mae_and_loss_last_80_percent_model1.png
+    LICENSE		     mae_and_loss_model1.png
+    LSTM_files	     README.md
+    LSTM_new.ipynb	     training_validation_metrics_model1.png
+    LSTM_original.ipynb
+    /content/drive/My Drive/Colab_Notebooks/github/LSTM-Human-Activity-Recognition/data
+     download_dataset.py   source.txt	 'UCI HAR Dataset.zip'
+     __MACOSX	      'UCI HAR Dataset'
+    
     Downloading...
-    --2017-05-24 01:49:53--  https://archive.ics.uci.edu/ml/machine-learning-databases/00240/UCI%20HAR%20Dataset.zip
-    Resolving archive.ics.uci.edu (archive.ics.uci.edu)... 128.195.10.249
-    Connecting to archive.ics.uci.edu (archive.ics.uci.edu)|128.195.10.249|:443... connected.
-    HTTP request sent, awaiting response... 200 OK
-    Length: 60999314 (58M) [application/zip]
-    Saving to: ‘UCI HAR Dataset.zip’
-
-    100%[======================================>] 60,999,314  1.69MB/s   in 38s    
-
-    2017-05-24 01:50:31 (1.55 MB/s) - ‘UCI HAR Dataset.zip’ saved [60999314/60999314]
-
-    Downloading done.
-
+    Dataset already downloaded. Did not download twice.
+    
     Extracting...
-    Extracting successfully done to /home/ubuntu/pynb/LSTM-Human-Activity-Recognition/data/UCI HAR Dataset.
-    /home/ubuntu/pynb/LSTM-Human-Activity-Recognition/data
-    download_dataset.py  __MACOSX  source.txt  UCI HAR Dataset  UCI HAR Dataset.zip
-    /home/ubuntu/pynb/LSTM-Human-Activity-Recognition
-    data	 LSTM_files  LSTM_OLD.ipynb  README.md
-    LICENSE  LSTM.ipynb  lstm.py	     screenlog.0
-
+    Dataset already extracted. Did not extract twice.
+    
+    /content/drive/My Drive/Colab_Notebooks/github/LSTM-Human-Activity-Recognition/data
+     download_dataset.py   source.txt	 'UCI HAR Dataset.zip'
+     __MACOSX	      'UCI HAR Dataset'
+    /content/drive/My Drive/Colab_Notebooks/github/LSTM-Human-Activity-Recognition
+    data		     mae_and_loss_last_80_percent_model1.png
+    LICENSE		     mae_and_loss_model1.png
+    LSTM_files	     README.md
+    LSTM_new.ipynb	     training_validation_metrics_model1.png
+    LSTM_original.ipynb
+    
     Dataset is now located at: data/UCI HAR Dataset/
 
 
+
+### (Modified work taken from Guillaume Chevalier)
 ## Preparing dataset:
 
 
+
 ```python
-TRAIN = "train/"
-TEST = "test/"
-
-
 # Load "X" (the neural network's training and testing inputs)
-
 def load_X(X_signals_paths):
     X_signals = []
 
@@ -170,19 +241,6 @@ def load_X(X_signals_paths):
 
     return np.transpose(np.array(X_signals), (1, 2, 0))
 
-X_train_signals_paths = [
-    DATASET_PATH + TRAIN + "Inertial Signals/" + signal + "train.txt" for signal in INPUT_SIGNAL_TYPES
-]
-X_test_signals_paths = [
-    DATASET_PATH + TEST + "Inertial Signals/" + signal + "test.txt" for signal in INPUT_SIGNAL_TYPES
-]
-
-X_train = load_X(X_train_signals_paths)
-X_test = load_X(X_test_signals_paths)
-
-
-# Load "y" (the neural network's training and testing outputs)
-
 def load_y(y_path):
     file = open(y_path, 'r')
     # Read dataset from disk, dealing with text file's syntax
@@ -197,6 +255,22 @@ def load_y(y_path):
     # Substract 1 to each output class for friendly 0-based indexing
     return y_ - 1
 
+TRAIN = "train/"
+TEST = "test/"
+
+X_train_signals_paths = [
+    DATASET_PATH + TRAIN + "Inertial Signals/" + signal + "train.txt" for signal in INPUT_SIGNAL_TYPES
+]
+X_test_signals_paths = [
+    DATASET_PATH + TEST + "Inertial Signals/" + signal + "test.txt" for signal in INPUT_SIGNAL_TYPES
+]
+
+X_train = load_X(X_train_signals_paths)
+X_test = load_X(X_test_signals_paths)
+
+
+# Load "y" (the neural network's training and testing outputs)
+
 y_train_path = DATASET_PATH + TRAIN + "y_train.txt"
 y_test_path = DATASET_PATH + TEST + "y_test.txt"
 
@@ -205,107 +279,16 @@ y_test = load_y(y_test_path)
 
 ```
 
-## Additionnal Parameters:
+### (The code below was authored by Nick Van Nest)
+## Define Utility Functions
 
-Here are some core parameter definitions for the training.
-
-For example, the whole neural network's structure could be summarised by enumerating those parameters and the fact that two LSTM are used one on top of another (stacked) output-to-input as hidden layers through time steps.
 
 
 ```python
-# Input Data
+import tensorflow as tf
 
-training_data_count = len(X_train)  # 7352 training series (with 50% overlap between each serie)
-test_data_count = len(X_test)  # 2947 testing series
-n_steps = len(X_train[0])  # 128 timesteps per series
-n_input = len(X_train[0][0])  # 9 input parameters per timestep
-
-
-# LSTM Neural Network's internal structure
-
-n_hidden = 32 # Hidden layer num of features
-n_classes = 6 # Total classes (should go up, or should go down)
-
-
-# Training
-
-learning_rate = 0.0025
-lambda_loss_amount = 0.0015
-training_iters = training_data_count * 300  # Loop 300 times on the dataset
-batch_size = 1500
-display_iter = 30000  # To show test set accuracy during training
-
-
-# Some debugging info
-
-print("Some useful info to get an insight on dataset's shape and normalisation:")
-print("(X shape, y shape, every X's mean, every X's standard deviation)")
-print(X_test.shape, y_test.shape, np.mean(X_test), np.std(X_test))
-print("The dataset is therefore properly normalised, as expected, but not yet one-hot encoded.")
-
-```
-
-    Some useful info to get an insight on dataset's shape and normalisation:
-    (X shape, y shape, every X's mean, every X's standard deviation)
-    (2947, 128, 9) (2947, 1) 0.0991399 0.395671
-    The dataset is therefore properly normalised, as expected, but not yet one-hot encoded.
-
-
-## Utility functions for training:
-
-
-```python
-def LSTM_RNN(_X, _weights, _biases):
-    # Function returns a tensorflow LSTM (RNN) artificial neural network from given parameters.
-    # Moreover, two LSTM cells are stacked which adds deepness to the neural network.
-    # Note, some code of this notebook is inspired from an slightly different
-    # RNN architecture used on another dataset, some of the credits goes to
-    # "aymericdamien" under the MIT license.
-
-    # (NOTE: This step could be greatly optimised by shaping the dataset once
-    # input shape: (batch_size, n_steps, n_input)
-    _X = tf.transpose(_X, [1, 0, 2])  # permute n_steps and batch_size
-    # Reshape to prepare input to hidden activation
-    _X = tf.reshape(_X, [-1, n_input])
-    # new shape: (n_steps*batch_size, n_input)
-
-    # ReLU activation, thanks to Yu Zhao for adding this improvement here:
-    _X = tf.nn.relu(tf.matmul(_X, _weights['hidden']) + _biases['hidden'])
-    # Split data because rnn cell needs a list of inputs for the RNN inner loop
-    _X = tf.split(_X, n_steps, 0)
-    # new shape: n_steps * (batch_size, n_hidden)
-
-    # Define two stacked LSTM cells (two recurrent layers deep) with tensorflow
-    lstm_cell_1 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=1.0, state_is_tuple=True)
-    lstm_cell_2 = tf.contrib.rnn.BasicLSTMCell(n_hidden, forget_bias=1.0, state_is_tuple=True)
-    lstm_cells = tf.contrib.rnn.MultiRNNCell([lstm_cell_1, lstm_cell_2], state_is_tuple=True)
-    # Get LSTM cell output
-    outputs, states = tf.contrib.rnn.static_rnn(lstm_cells, _X, dtype=tf.float32)
-
-    # Get last time step's output feature for a "many-to-one" style classifier,
-    # as in the image describing RNNs at the top of this page
-    lstm_last_output = outputs[-1]
-
-    # Linear activation
-    return tf.matmul(lstm_last_output, _weights['out']) + _biases['out']
-
-
-def extract_batch_size(_train, step, batch_size):
-    # Function to fetch a "batch_size" amount of data from "(X|y)_train" data.
-
-    shape = list(_train.shape)
-    shape[0] = batch_size
-    batch_s = np.empty(shape)
-
-    for i in range(batch_size):
-        # Loop index
-        index = ((step-1)*batch_size + i) % len(_train)
-        batch_s[i] = _train[index]
-
-    return batch_s
-
-
-def one_hot(y_, n_classes=n_classes):
+def one_hot(y_, n_classes):
+    # This function was taken with modification from Guillaume Chevalier)
     # Function to encode neural one-hot output labels from number indexes
     # e.g.:
     # one_hot(y_=[[5], [0], [3]], n_classes=6):
@@ -314,293 +297,703 @@ def one_hot(y_, n_classes=n_classes):
     y_ = y_.reshape(len(y_))
     return np.eye(n_classes)[np.array(y_, dtype=np.int32)]  # Returns FLOATS
 
-```
+def prepare_dataset(features, labels, batch_size, shuffle_buffer_size=1000):
+    """
+    Prepare a shuffled and batched tf.data.Dataset given features and labels.
 
-## Let's get serious and build the neural network:
+    Args:
+    - features (ndarray): The feature data; shape should be (num_samples, 128, 9).
+    - labels (ndarray): The label data; shape should be (num_samples, 5).
+    - batch_size (int): Size of each batch.
+    - shuffle_buffer_size (int): Size of shuffle buffer.
 
+    Returns:
+    - dataset (tf.data.Dataset): Shuffled and batched dataset.
+    """
 
-```python
+    # Create a tf.data.Dataset object from the features and labels
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
 
-# Graph input/output
-x = tf.placeholder(tf.float32, [None, n_steps, n_input])
-y = tf.placeholder(tf.float32, [None, n_classes])
+    # Shuffle the dataset
+    dataset = dataset.shuffle(shuffle_buffer_size)
 
-# Graph weights
-weights = {
-    'hidden': tf.Variable(tf.random_normal([n_input, n_hidden])), # Hidden layer weights
-    'out': tf.Variable(tf.random_normal([n_hidden, n_classes], mean=1.0))
-}
-biases = {
-    'hidden': tf.Variable(tf.random_normal([n_hidden])),
-    'out': tf.Variable(tf.random_normal([n_classes]))
-}
+    # Batch the data
+    dataset = dataset.batch(batch_size)
 
-pred = LSTM_RNN(x, weights, biases)
+    # Using prefetch to improve performance
+    dataset = dataset.prefetch(1)
 
-# Loss, optimizer and evaluation
-l2 = lambda_loss_amount * sum(
-    tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables()
-) # L2 loss prevents this overkill neural network to overfit the data
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=pred)) + l2 # Softmax loss
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
+    return dataset
 
-correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+def plot_lr_vs_loss(epochs, lr_loss_logger):
+    # Use learning rates logged by custom logger
+    lrs = lr_loss_logger.learning_rates
 
-```
+    # Use losses logged by custom logger
+    losses = lr_loss_logger.losses
 
-## Hooray, now train the neural network:
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.grid(True)
+    plt.semilogx(lrs, losses)
+    plt.tick_params('both', length=10, width=1, which='both')
+    plt.axis([min(lrs), max(lrs), min(losses), max(losses)])
+    plt.xlabel('Learning Rate')
+    plt.ylabel('Loss')
+    plt.title('Learning Rate vs Loss')
+    plt.show()
 
+    return #np.array([lrs, losses]).T
 
-```python
-# To keep track of training's performance
-test_losses = []
-test_accuracies = []
-train_losses = []
-train_accuracies = []
+def plot_series_dual_y(x, y1, y2, title=None, xlabel=None, ylabel1=None, ylabel2=None, legend1=None, legend2=None, filename=None):
+    fig, ax1 = plt.subplots(figsize=(10, 6))
 
-# Launch the graph
-sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=True))
-init = tf.global_variables_initializer()
-sess.run(init)
+    color = 'tab:red'
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(ylabel1, color=color)
+    ax1.plot(x, y1, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
 
-# Perform Training steps with "batch_size" amount of example data at each loop
-step = 1
-while step * batch_size <= training_iters:
-    batch_xs =         extract_batch_size(X_train, step, batch_size)
-    batch_ys = one_hot(extract_batch_size(y_train, step, batch_size))
+    ax2 = ax1.twinx()
+    color = 'tab:blue'
+    ax2.set_ylabel(ylabel2, color=color)
+    ax2.plot(x, y2, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
 
-    # Fit training using batch data
-    _, loss, acc = sess.run(
-        [optimizer, cost, accuracy],
-        feed_dict={
-            x: batch_xs,
-            y: batch_ys
-        }
-    )
-    train_losses.append(loss)
-    train_accuracies.append(acc)
+    if legend1 or legend2:
+        ax1.legend([legend1], loc='upper left')
+        ax2.legend([legend2], loc='upper right')
 
-    # Evaluate network only at some steps for faster training:
-    if (step*batch_size % display_iter == 0) or (step == 1) or (step * batch_size > training_iters):
+    plt.title(title)
+    fig.tight_layout()
+    if filename:
+        plt.savefig(filename)
+    plt.show()
 
-        # To not spam console, show training accuracy/loss in this "if"
-        print("Training iter #" + str(step*batch_size) + \
-              ":   Batch Loss = " + "{:.6f}".format(loss) + \
-              ", Accuracy = {}".format(acc))
+def plot_training_validation_metrics(history, title, filename=None):
+    # Inline plots
+    %matplotlib inline
 
-        # Evaluation on the test set (no learning made here - just evaluation for diagnosis)
-        loss, acc = sess.run(
-            [cost, accuracy],
-            feed_dict={
-                x: X_test,
-                y: one_hot(y_test)
-            }
-        )
-        test_losses.append(loss)
-        test_accuracies.append(acc)
-        print("PERFORMANCE ON TEST SET: " + \
-              "Batch Loss = {}".format(loss) + \
-              ", Accuracy = {}".format(acc))
-
-    step += 1
-
-print("Optimization Finished!")
-
-# Accuracy for test data
-
-one_hot_predictions, accuracy, final_loss = sess.run(
-    [pred, accuracy, cost],
-    feed_dict={
-        x: X_test,
-        y: one_hot(y_test)
+    # Font settings
+    font = {
+        'weight': 'bold',
+        'size': 18
     }
-)
+    plt.rc('font', **font)
 
-test_losses.append(final_loss)
-test_accuracies.append(accuracy)
+    # Figure size
+    plt.figure(figsize=(12, 12))
 
-print("FINAL RESULT: " + \
-      "Batch Loss = {}".format(final_loss) + \
-      ", Accuracy = {}".format(accuracy))
+    # Extract training and validation metrics from history object
+    train_mae = history.history['mae']
+    train_loss = history.history['loss']
+    val_mae = history.history['val_mae']
+    val_loss = history.history['val_loss']
 
+    # Create epoch axis and plot training metrics
+    epochs = range(1, len(train_mae) + 1)
+    plt.plot(epochs, train_mae, 'b--', label='Training MAE')
+    plt.plot(epochs, train_loss, 'r--', label='Training Loss')
+
+    # Plot validation metrics
+    plt.plot(epochs, val_mae, 'b-', label='Validation MAE')
+    plt.plot(epochs, val_loss, 'r-', label='Validation Loss')
+
+    # Labels and title
+    plt.title(title)
+    plt.legend(loc='upper right', shadow=True)
+    plt.ylabel('Progress (MAE or Loss values)')
+    plt.xlabel('Epoch')
+
+    # Save the plot if filename is provided
+    if filename:
+        plt.savefig(filename)
+
+    # Show the plot
+    plt.show()
+
+def print_classification_metrics(X, y_true_oh, model, average_method="weighted"):
+    # Make predictions on the original ordered data
+    predictions_prob = model.predict(X)
+    predictions = np.argmax(predictions_prob, axis=1)
+
+    # Converting one-hot encoded y_test to label encoded
+    true_labels = np.argmax(y_true_oh, axis=1)
+
+    # Calculating metrics
+    accuracy = accuracy_score(true_labels, predictions)
+    precision = precision_score(true_labels, predictions, average=average_method)
+    recall = recall_score(true_labels, predictions, average=average_method)
+    f1 = f1_score(true_labels, predictions, average=average_method)
+
+    print(f"Testing Accuracy: {accuracy * 100}%")
+    print(f"Precision: {precision * 100}%")
+    print(f"Recall: {recall * 100}%")
+    print(f"F1 Score: {f1 * 100}%")
+
+def plot_normalized_confusion_matrix(X, y_true_oh, model, labels, cmap=plt.cm.rainbow):
+    # Make predictions on the original ordered data
+    predictions_prob = model.predict(X)
+    predictions = np.argmax(predictions_prob, axis=1)
+
+    # Converting one-hot encoded y_test to label encoded
+    true_labels = np.argmax(y_true_oh, axis=1)
+
+    # Generate confusion matrix
+    confusion_mtx = confusion_matrix(true_labels, predictions)
+    normalised_confusion_matrix = np.array(confusion_mtx, dtype=np.float32)/np.sum(confusion_mtx)*100
+
+    # Create a plot
+    plt.figure(figsize=(8, 8))
+    plt.imshow(normalised_confusion_matrix, interpolation='nearest', cmap=cmap)
+    plt.title("Confusion Matrix (Normalized)")
+    plt.colorbar()
+
+    tick_marks = np.arange(len(labels))
+    plt.xticks(tick_marks, labels, rotation=90)
+    plt.yticks(tick_marks, labels)
+
+    plt.tight_layout()
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
 ```
 
-    WARNING:tensorflow:From <ipython-input-19-3339689e51f6>:9: initialize_all_variables (from tensorflow.python.ops.variables) is deprecated and will be removed after 2017-03-02.
-    Instructions for updating:
-    Use `tf.global_variables_initializer` instead.
-    Training iter #1500:   Batch Loss = 5.416760, Accuracy = 0.15266665816307068
-    PERFORMANCE ON TEST SET: Batch Loss = 4.880829811096191, Accuracy = 0.05632847175002098
-    Training iter #30000:   Batch Loss = 3.031930, Accuracy = 0.607333242893219
-    PERFORMANCE ON TEST SET: Batch Loss = 3.0515167713165283, Accuracy = 0.6067186594009399
-    Training iter #60000:   Batch Loss = 2.672764, Accuracy = 0.7386666536331177
-    PERFORMANCE ON TEST SET: Batch Loss = 2.780435085296631, Accuracy = 0.7027485370635986
-    Training iter #90000:   Batch Loss = 2.378301, Accuracy = 0.8366667032241821
-    PERFORMANCE ON TEST SET: Batch Loss = 2.6019773483276367, Accuracy = 0.7617915868759155
-    Training iter #120000:   Batch Loss = 2.127290, Accuracy = 0.9066667556762695
-    PERFORMANCE ON TEST SET: Batch Loss = 2.3625404834747314, Accuracy = 0.8116728663444519
-    Training iter #150000:   Batch Loss = 1.929805, Accuracy = 0.9380000233650208
-    PERFORMANCE ON TEST SET: Batch Loss = 2.306251049041748, Accuracy = 0.8276212215423584
-    Training iter #180000:   Batch Loss = 1.971904, Accuracy = 0.9153333902359009
-    PERFORMANCE ON TEST SET: Batch Loss = 2.0835530757904053, Accuracy = 0.8771631121635437
-    Training iter #210000:   Batch Loss = 1.860249, Accuracy = 0.8613333702087402
-    PERFORMANCE ON TEST SET: Batch Loss = 1.9994492530822754, Accuracy = 0.8788597583770752
-    Training iter #240000:   Batch Loss = 1.626292, Accuracy = 0.9380000233650208
-    PERFORMANCE ON TEST SET: Batch Loss = 1.879166603088379, Accuracy = 0.8944689035415649
-    Training iter #270000:   Batch Loss = 1.582758, Accuracy = 0.9386667013168335
-    PERFORMANCE ON TEST SET: Batch Loss = 2.0341007709503174, Accuracy = 0.8361043930053711
-    Training iter #300000:   Batch Loss = 1.620352, Accuracy = 0.9306666851043701
-    PERFORMANCE ON TEST SET: Batch Loss = 1.8185184001922607, Accuracy = 0.8639293313026428
-    Training iter #330000:   Batch Loss = 1.474394, Accuracy = 0.9693333506584167
-    PERFORMANCE ON TEST SET: Batch Loss = 1.7638503313064575, Accuracy = 0.8747878670692444
-    Training iter #360000:   Batch Loss = 1.406998, Accuracy = 0.9420000314712524
-    PERFORMANCE ON TEST SET: Batch Loss = 1.5946787595748901, Accuracy = 0.902273416519165
-    Training iter #390000:   Batch Loss = 1.362515, Accuracy = 0.940000057220459
-    PERFORMANCE ON TEST SET: Batch Loss = 1.5285792350769043, Accuracy = 0.9046487212181091
-    Training iter #420000:   Batch Loss = 1.252860, Accuracy = 0.9566667079925537
-    PERFORMANCE ON TEST SET: Batch Loss = 1.4635565280914307, Accuracy = 0.9107565879821777
-    Training iter #450000:   Batch Loss = 1.190078, Accuracy = 0.9553333520889282
-    ...
-    PERFORMANCE ON TEST SET: Batch Loss = 0.42567864060401917, Accuracy = 0.9324736595153809
-    Training iter #2070000:   Batch Loss = 0.342763, Accuracy = 0.9326667189598083
-    PERFORMANCE ON TEST SET: Batch Loss = 0.4292983412742615, Accuracy = 0.9273836612701416
-    Training iter #2100000:   Batch Loss = 0.259442, Accuracy = 0.9873334169387817
-    PERFORMANCE ON TEST SET: Batch Loss = 0.44131210446357727, Accuracy = 0.9273836612701416
-    Training iter #2130000:   Batch Loss = 0.284630, Accuracy = 0.9593333601951599
-    PERFORMANCE ON TEST SET: Batch Loss = 0.46982717514038086, Accuracy = 0.9093992710113525
-    Training iter #2160000:   Batch Loss = 0.299012, Accuracy = 0.9686667323112488
-    PERFORMANCE ON TEST SET: Batch Loss = 0.48389002680778503, Accuracy = 0.9138105511665344
-    Training iter #2190000:   Batch Loss = 0.287106, Accuracy = 0.9700000286102295
-    PERFORMANCE ON TEST SET: Batch Loss = 0.4670214056968689, Accuracy = 0.9216151237487793
-    Optimization Finished!
-    FINAL RESULT: Batch Loss = 0.45611169934272766, Accuracy = 0.9165252447128296
-
-
-## Training is good, but having visual insight is even better:
-
-Okay, let's plot this simply in the notebook for now.
+## Define Callback Functions to Modify Training
 
 
 ```python
-# (Inline plots: )
-%matplotlib inline
+def lr_scheduler(epoch, lr, initial_lr=1e-6, final_lr=1e-2, epochs=10):
+    factor = (final_lr / initial_lr) ** (1 / (epochs - 1))
+    return initial_lr * (factor ** epoch)
 
-font = {
-    'family' : 'Bitstream Vera Sans',
-    'weight' : 'bold',
-    'size'   : 18
-}
-matplotlib.rc('font', **font)
+class LearningRateLossLogger(tf.keras.callbacks.Callback):
+    def __init__(self):
+        super().__init__()
+        self.learning_rates = []
+        self.losses = []
 
-width = 12
-height = 12
-plt.figure(figsize=(width, height))
+    def on_epoch_end(self, epoch, logs=None):
+        lr = float(tf.keras.backend.get_value(self.model.optimizer.lr))
+        self.learning_rates.append(lr)
+        self.losses.append(logs['loss'])
 
-indep_train_axis = np.array(range(batch_size, (len(train_losses)+1)*batch_size, batch_size))
-plt.plot(indep_train_axis, np.array(train_losses),     "b--", label="Train losses")
-plt.plot(indep_train_axis, np.array(train_accuracies), "g--", label="Train accuracies")
+class StopAtThresholdCallback(tf.keras.callbacks.Callback):
+    def __init__(self, threshold):
+        super(StopAtThresholdCallback, self).__init__()
+        self.threshold = threshold  # Threshold for stopping the training
 
-indep_test_axis = np.append(
-    np.array(range(batch_size, len(test_losses)*display_iter, display_iter)[:-1]),
-    [training_iters]
-)
-plt.plot(indep_test_axis, np.array(test_losses),     "b-", label="Test losses")
-plt.plot(indep_test_axis, np.array(test_accuracies), "g-", label="Test accuracies")
-
-plt.title("Training session's progress over iterations")
-plt.legend(loc='upper right', shadow=True)
-plt.ylabel('Training Progress (Loss or Accuracy values)')
-plt.xlabel('Training iteration')
-
-plt.show()
+    def on_epoch_end(self, epoch, logs=None):
+        val_accuracy = logs.get('val_accuracy')
+        if val_accuracy is not None and val_accuracy > self.threshold:
+            print(f"\nReached {self.threshold * 100}% validation accuracy. Stopping training.")
+            self.model.stop_training = True
 ```
-
-
-![LSTM Training Testing Comparison Curve](LSTM_files/LSTM_16_0.png)
-
-
-## And finally, the multi-class confusion matrix and metrics!
 
 
 ```python
-# Results
+TRAINING_BATCH_SIZE = 512
+TESTING_BATCH_SIZE = 32
+NUMBER_OF_CLASSES = 6
+WINDOW_SIZE = len(X_train[0])
+TIME_STEP_PARAMETER_SIZE = len(X_train[0][0])
 
-predictions = one_hot_predictions.argmax(1)
+# Prepare the dataset
+y_train_oh = one_hot(y_train, NUMBER_OF_CLASSES)
+y_test_oh = one_hot(y_test, NUMBER_OF_CLASSES)
+prepared_training = prepare_dataset(X_train, y_train_oh, TRAINING_BATCH_SIZE)
+prepared_testing = prepare_dataset(X_test, y_test_oh, TESTING_BATCH_SIZE)
 
-print("Testing Accuracy: {}%".format(100*accuracy))
-
-print("")
-print("Precision: {}%".format(100*metrics.precision_score(y_test, predictions, average="weighted")))
-print("Recall: {}%".format(100*metrics.recall_score(y_test, predictions, average="weighted")))
-print("f1_score: {}%".format(100*metrics.f1_score(y_test, predictions, average="weighted")))
-
-print("")
-print("Confusion Matrix:")
-confusion_matrix = metrics.confusion_matrix(y_test, predictions)
-print(confusion_matrix)
-normalised_confusion_matrix = np.array(confusion_matrix, dtype=np.float32)/np.sum(confusion_matrix)*100
-
-print("")
-print("Confusion matrix (normalised to % of total test data):")
-print(normalised_confusion_matrix)
-print("Note: training and testing data is not equally distributed amongst classes, ")
-print("so it is normal that more than a 6th of the data is correctly classifier in the last category.")
-
-# Plot Results:
-width = 12
-height = 12
-plt.figure(figsize=(width, height))
-plt.imshow(
-    normalised_confusion_matrix,
-    interpolation='nearest',
-    cmap=plt.cm.rainbow
-)
-plt.title("Confusion matrix \n(normalised to % of total test data)")
-plt.colorbar()
-tick_marks = np.arange(n_classes)
-plt.xticks(tick_marks, LABELS, rotation=90)
-plt.yticks(tick_marks, LABELS)
-plt.tight_layout()
-plt.ylabel('True label')
-plt.xlabel('Predicted label')
-plt.show()
 ```
 
-    Testing Accuracy: 91.65252447128296%
 
-    Precision: 91.76286479743305%
-    Recall: 91.65252799457076%
-    f1_score: 91.6437546304815%
+```python
+# Build the Model
+def create_model_v1():
+  model = tf.keras.models.Sequential([
+    tf.keras.layers.Conv1D(filters=64, kernel_size=3,
+                        strides=1,
+                        activation="relu",
+                        padding='causal',
+                        kernel_regularizer=regularizers.l2(0.001),
+                        input_shape=[WINDOW_SIZE, TIME_STEP_PARAMETER_SIZE]),
+    tf.keras.layers.LSTM(128, return_sequences=True),
+    tf.keras.layers.LSTM(128),
+    tf.keras.layers.Dense(64, kernel_regularizer=regularizers.l2(0.001), activation="relu"),
+    tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(64, kernel_regularizer=regularizers.l2(0.001), activation="relu"),
+    tf.keras.layers.Dropout(0.4),
+    tf.keras.layers.Dense(NUMBER_OF_CLASSES, activation="softmax"),
+  ])
+  return model
 
-    Confusion Matrix:
-    [[466   2  26   0   2   0]
-     [  5 441  25   0   0   0]
-     [  1   0 419   0   0   0]
-     [  1   1   0 396  87   6]
-     [  2   1   0  87 442   0]
-     [  0   0   0   0   0 537]]
+def create_model_v2():
+  model = tf.keras.models.Sequential([
+    tf.keras.layers.LSTM(64, return_sequences=True, input_shape=[WINDOW_SIZE, TIME_STEP_PARAMETER_SIZE], activation='tanh'),
+    tf.keras.layers.LSTM(64, activation='tanh'),
+    tf.keras.layers.Dense(NUMBER_OF_CLASSES, activation="softmax"),
+  ])
+  return model
 
-    Confusion matrix (normalised to % of total test data):
-    [[ 15.81269073   0.06786563   0.88225317   0.           0.06786563   0.        ]
-     [  0.16966406  14.96437073   0.84832031   0.           0.           0.        ]
-     [  0.03393281   0.          14.21784878   0.           0.           0.        ]
-     [  0.03393281   0.03393281   0.          13.43739319   2.95215464
-        0.20359688]
-     [  0.06786563   0.03393281   0.           2.95215464  14.99830341   0.        ]
-     [  0.           0.           0.           0.           0.          18.22192001]]
-    Note: training and testing data is not equally distributed amongst classes,
-    so it is normal that more than a 6th of the data is correctly classifier in the last category.
+# Print the model summary
+model = create_model_v1()
+model.summary()
+```
+
+    Model: "sequential_1"
+    _________________________________________________________________
+     Layer (type)                Output Shape              Param #   
+    =================================================================
+     conv1d_1 (Conv1D)           (None, 128, 64)           1792      
+                                                                     
+     lstm_2 (LSTM)               (None, 128, 128)          98816     
+                                                                     
+     lstm_3 (LSTM)               (None, 128)               131584    
+                                                                     
+     dense_3 (Dense)             (None, 64)                8256      
+                                                                     
+     dropout_2 (Dropout)         (None, 64)                0         
+                                                                     
+     dense_4 (Dense)             (None, 64)                4160      
+                                                                     
+     dropout_3 (Dropout)         (None, 64)                0         
+                                                                     
+     dense_5 (Dense)             (None, 6)                 390       
+                                                                     
+    =================================================================
+    Total params: 244998 (957.02 KB)
+    Trainable params: 244998 (957.02 KB)
+    Non-trainable params: 0 (0.00 Byte)
+    _________________________________________________________________
+
+
+## Determine the optimal learning rate for the model
+
+
+```python
+EPOCHS = 30
+
+# Initialize the optimizer
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-8)  # Start with the initial learning rate
+
+# Initialize the Model
+model = create_model_v1()
+
+# Compile the model
+model.compile(loss=tf.keras.losses.CategoricalCrossentropy(),
+              optimizer=optimizer,
+              metrics=['accuracy']
+              )
+
+# Set the callbacks
+lr_loss_logger = LearningRateLossLogger()
+scheduler_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch, lr: lr_scheduler(epoch, lr, initial_lr=1e-5, final_lr=1e-1, epochs=EPOCHS))
+
+# Train the model
+history = model.fit(
+    prepared_training,
+    epochs=EPOCHS,
+    callbacks=[scheduler_callback, lr_loss_logger],
+    validation_data = prepared_testing
+)
+
+# Your existing plotting function should work fine now
+plot_lr_vs_loss(epochs=EPOCHS, lr_loss_logger=lr_loss_logger)
+
+```
+
+    Epoch 1/30
+    15/15 [==============================] - 13s 237ms/step - loss: 1.9558 - accuracy: 0.1508 - val_loss: 1.9522 - val_accuracy: 0.1218 - lr: 1.0000e-05
+    Epoch 2/30
+    15/15 [==============================] - 2s 142ms/step - loss: 1.9527 - accuracy: 0.1647 - val_loss: 1.9468 - val_accuracy: 0.2209 - lr: 1.3738e-05
+    Epoch 3/30
+    15/15 [==============================] - 2s 151ms/step - loss: 1.9450 - accuracy: 0.1817 - val_loss: 1.9388 - val_accuracy: 0.2090 - lr: 1.8874e-05
+    Epoch 4/30
+    15/15 [==============================] - 2s 143ms/step - loss: 1.9362 - accuracy: 0.2140 - val_loss: 1.9270 - val_accuracy: 0.2966 - lr: 2.5929e-05
+    Epoch 5/30
+    15/15 [==============================] - 2s 143ms/step - loss: 1.9232 - accuracy: 0.2387 - val_loss: 1.9088 - val_accuracy: 0.3560 - lr: 3.5622e-05
+    Epoch 6/30
+    15/15 [==============================] - 1s 91ms/step - loss: 1.9024 - accuracy: 0.2810 - val_loss: 1.8754 - val_accuracy: 0.3627 - lr: 4.8939e-05
+    Epoch 7/30
+    15/15 [==============================] - 1s 77ms/step - loss: 1.8594 - accuracy: 0.3098 - val_loss: 1.7994 - val_accuracy: 0.3787 - lr: 6.7234e-05
+    Epoch 8/30
+    15/15 [==============================] - 1s 79ms/step - loss: 1.7587 - accuracy: 0.3588 - val_loss: 1.5950 - val_accuracy: 0.4489 - lr: 9.2367e-05
+    Epoch 9/30
+    15/15 [==============================] - 2s 136ms/step - loss: 1.5631 - accuracy: 0.4246 - val_loss: 1.3652 - val_accuracy: 0.5280 - lr: 1.2690e-04
+    Epoch 10/30
+    15/15 [==============================] - 1s 93ms/step - loss: 1.3030 - accuracy: 0.5343 - val_loss: 1.0380 - val_accuracy: 0.6430 - lr: 1.7433e-04
+    Epoch 11/30
+    15/15 [==============================] - 1s 79ms/step - loss: 1.2218 - accuracy: 0.5807 - val_loss: 1.1466 - val_accuracy: 0.5789 - lr: 2.3950e-04
+    Epoch 12/30
+    15/15 [==============================] - 1s 79ms/step - loss: 1.1355 - accuracy: 0.5817 - val_loss: 0.9736 - val_accuracy: 0.6261 - lr: 3.2903e-04
+    Epoch 13/30
+    15/15 [==============================] - 1s 79ms/step - loss: 1.0223 - accuracy: 0.6279 - val_loss: 0.9890 - val_accuracy: 0.6420 - lr: 4.5204e-04
+    Epoch 14/30
+    15/15 [==============================] - 1s 80ms/step - loss: 0.9435 - accuracy: 0.6564 - val_loss: 0.9182 - val_accuracy: 0.6973 - lr: 6.2102e-04
+    Epoch 15/30
+    15/15 [==============================] - 1s 79ms/step - loss: 0.9408 - accuracy: 0.6598 - val_loss: 0.9524 - val_accuracy: 0.5982 - lr: 8.5317e-04
+    Epoch 16/30
+    15/15 [==============================] - 1s 88ms/step - loss: 0.8944 - accuracy: 0.6477 - val_loss: 0.9675 - val_accuracy: 0.6149 - lr: 0.0012
+    Epoch 17/30
+    15/15 [==============================] - 1s 79ms/step - loss: 0.8107 - accuracy: 0.6921 - val_loss: 0.8418 - val_accuracy: 0.6814 - lr: 0.0016
+    Epoch 18/30
+    15/15 [==============================] - 1s 89ms/step - loss: 0.7397 - accuracy: 0.7398 - val_loss: 0.8110 - val_accuracy: 0.7469 - lr: 0.0022
+    Epoch 19/30
+    15/15 [==============================] - 2s 135ms/step - loss: 0.6582 - accuracy: 0.7973 - val_loss: 0.7096 - val_accuracy: 0.7927 - lr: 0.0030
+    Epoch 20/30
+    15/15 [==============================] - 1s 81ms/step - loss: 1.0131 - accuracy: 0.7001 - val_loss: 0.9642 - val_accuracy: 0.5816 - lr: 0.0042
+    Epoch 21/30
+    15/15 [==============================] - 1s 79ms/step - loss: 0.9601 - accuracy: 0.5819 - val_loss: 0.9092 - val_accuracy: 0.5762 - lr: 0.0057
+    Epoch 22/30
+    15/15 [==============================] - 1s 78ms/step - loss: 0.8566 - accuracy: 0.6235 - val_loss: 0.8192 - val_accuracy: 0.5989 - lr: 0.0079
+    Epoch 23/30
+    15/15 [==============================] - 1s 78ms/step - loss: 1.1311 - accuracy: 0.5318 - val_loss: 1.0349 - val_accuracy: 0.5935 - lr: 0.0108
+    Epoch 24/30
+    15/15 [==============================] - 1s 80ms/step - loss: 1.0085 - accuracy: 0.5344 - val_loss: 1.0099 - val_accuracy: 0.4947 - lr: 0.0149
+    Epoch 25/30
+    15/15 [==============================] - 1s 80ms/step - loss: 0.9651 - accuracy: 0.6036 - val_loss: 1.1160 - val_accuracy: 0.5416 - lr: 0.0204
+    Epoch 26/30
+    15/15 [==============================] - 1s 79ms/step - loss: 0.9159 - accuracy: 0.6147 - val_loss: 0.9929 - val_accuracy: 0.5999 - lr: 0.0281
+    Epoch 27/30
+    15/15 [==============================] - 1s 78ms/step - loss: 0.8579 - accuracy: 0.6166 - val_loss: 0.9428 - val_accuracy: 0.5887 - lr: 0.0386
+    Epoch 28/30
+    15/15 [==============================] - 1s 88ms/step - loss: 1.0943 - accuracy: 0.5559 - val_loss: 1.4218 - val_accuracy: 0.3756 - lr: 0.0530
+    Epoch 29/30
+    15/15 [==============================] - 2s 136ms/step - loss: 1.4953 - accuracy: 0.4869 - val_loss: 1.4457 - val_accuracy: 0.5782 - lr: 0.0728
+    Epoch 30/30
+    15/15 [==============================] - 1s 81ms/step - loss: 1.8072 - accuracy: 0.4524 - val_loss: 1.5657 - val_accuracy: 0.4713 - lr: 0.1000
 
 
 
-![Confusion Matrix](LSTM_files/LSTM_18_1.png)
+    
+![png](LSTM_new_files/LSTM_new_20_1.png)
+    
+
+
+## Clear the session and use the learning rate to perform training in bulk
+
+
+```python
+tf.keras.backend.clear_session()
+
+EPOCHS = 150
+
+# Initialize the optimizer
+optimizer = tf.keras.optimizers.Adam(learning_rate=5.5e-4)  # Start with the initial learning rate
+
+# Initialize the Model
+model = create_model_v1()
+
+# Compile the model
+model.compile(loss=tf.keras.losses.CategoricalCrossentropy(),
+              optimizer=optimizer,
+              metrics=['accuracy','mae']
+              )
+
+# Set the callbacks
+lr_loss_logger = LearningRateLossLogger()
+stop_at_threshold = StopAtThresholdCallback(threshold=0.92)
+
+# Train the model
+history = model.fit(
+    prepared_training,
+    epochs=EPOCHS,
+    callbacks=[lr_loss_logger, stop_at_threshold],
+    validation_data = prepared_testing
+)
+```
+
+    Epoch 1/150
+    15/15 [==============================] - 7s 138ms/step - loss: 1.8765 - accuracy: 0.3224 - mae: 0.2722 - val_loss: 1.6116 - val_accuracy: 0.5124 - val_mae: 0.2459
+    Epoch 2/150
+    15/15 [==============================] - 1s 80ms/step - loss: 1.4877 - accuracy: 0.4687 - mae: 0.2212 - val_loss: 1.2460 - val_accuracy: 0.5131 - val_mae: 0.1959
+    Epoch 3/150
+    15/15 [==============================] - 2s 135ms/step - loss: 1.3253 - accuracy: 0.4973 - mae: 0.1974 - val_loss: 1.2015 - val_accuracy: 0.5528 - val_mae: 0.1886
+    Epoch 4/150
+    15/15 [==============================] - 1s 81ms/step - loss: 1.1307 - accuracy: 0.5724 - mae: 0.1796 - val_loss: 1.0059 - val_accuracy: 0.5843 - val_mae: 0.1638
+    Epoch 5/150
+    15/15 [==============================] - 1s 88ms/step - loss: 1.0385 - accuracy: 0.6062 - mae: 0.1581 - val_loss: 0.9957 - val_accuracy: 0.5626 - val_mae: 0.1589
+    Epoch 6/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.9858 - accuracy: 0.5841 - mae: 0.1586 - val_loss: 0.8722 - val_accuracy: 0.6566 - val_mae: 0.1474
+    Epoch 7/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.8858 - accuracy: 0.6432 - mae: 0.1421 - val_loss: 0.8918 - val_accuracy: 0.6529 - val_mae: 0.1395
+    Epoch 8/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.8860 - accuracy: 0.6691 - mae: 0.1360 - val_loss: 0.8526 - val_accuracy: 0.6590 - val_mae: 0.1321
+    Epoch 9/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.8318 - accuracy: 0.6872 - mae: 0.1312 - val_loss: 0.8283 - val_accuracy: 0.6810 - val_mae: 0.1289
+    Epoch 10/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.7572 - accuracy: 0.7262 - mae: 0.1217 - val_loss: 0.7935 - val_accuracy: 0.6997 - val_mae: 0.1204
+    Epoch 11/150
+    15/15 [==============================] - 1s 92ms/step - loss: 0.7446 - accuracy: 0.7333 - mae: 0.1171 - val_loss: 0.8539 - val_accuracy: 0.6939 - val_mae: 0.1246
+    Epoch 12/150
+    15/15 [==============================] - 1s 91ms/step - loss: 0.6999 - accuracy: 0.7501 - mae: 0.1130 - val_loss: 0.8284 - val_accuracy: 0.6851 - val_mae: 0.1197
+    Epoch 13/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.6505 - accuracy: 0.7786 - mae: 0.1036 - val_loss: 0.8052 - val_accuracy: 0.7075 - val_mae: 0.1131
+    Epoch 14/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.6038 - accuracy: 0.7950 - mae: 0.0973 - val_loss: 0.8285 - val_accuracy: 0.7513 - val_mae: 0.1050
+    Epoch 15/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.6081 - accuracy: 0.7878 - mae: 0.0938 - val_loss: 0.8235 - val_accuracy: 0.7570 - val_mae: 0.1041
+    Epoch 16/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.5845 - accuracy: 0.7886 - mae: 0.0926 - val_loss: 0.7390 - val_accuracy: 0.7482 - val_mae: 0.1045
+    Epoch 17/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.5749 - accuracy: 0.7916 - mae: 0.0945 - val_loss: 0.7790 - val_accuracy: 0.7771 - val_mae: 0.0936
+    Epoch 18/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.5831 - accuracy: 0.7935 - mae: 0.0913 - val_loss: 0.7143 - val_accuracy: 0.7587 - val_mae: 0.1005
+    Epoch 19/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.5337 - accuracy: 0.8274 - mae: 0.0843 - val_loss: 0.7322 - val_accuracy: 0.7757 - val_mae: 0.0918
+    Epoch 20/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.4900 - accuracy: 0.8459 - mae: 0.0774 - val_loss: 0.8259 - val_accuracy: 0.7835 - val_mae: 0.0897
+    Epoch 21/150
+    15/15 [==============================] - 2s 136ms/step - loss: 0.4669 - accuracy: 0.8611 - mae: 0.0720 - val_loss: 0.8083 - val_accuracy: 0.7849 - val_mae: 0.0856
+    Epoch 22/150
+    15/15 [==============================] - 1s 89ms/step - loss: 0.4648 - accuracy: 0.8630 - mae: 0.0704 - val_loss: 0.8592 - val_accuracy: 0.7750 - val_mae: 0.0892
+    Epoch 23/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.5571 - accuracy: 0.8271 - mae: 0.0802 - val_loss: 0.8469 - val_accuracy: 0.7784 - val_mae: 0.0945
+    Epoch 24/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.5297 - accuracy: 0.8399 - mae: 0.0799 - val_loss: 0.6898 - val_accuracy: 0.7889 - val_mae: 0.0971
+    Epoch 25/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.5728 - accuracy: 0.8447 - mae: 0.0836 - val_loss: 0.7633 - val_accuracy: 0.7920 - val_mae: 0.0967
+    Epoch 26/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.4458 - accuracy: 0.8819 - mae: 0.0709 - val_loss: 0.7770 - val_accuracy: 0.7933 - val_mae: 0.0856
+    Epoch 27/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.4604 - accuracy: 0.8670 - mae: 0.0693 - val_loss: 0.9816 - val_accuracy: 0.7754 - val_mae: 0.0894
+    Epoch 28/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.6198 - accuracy: 0.8292 - mae: 0.0799 - val_loss: 0.7156 - val_accuracy: 0.8022 - val_mae: 0.0849
+    Epoch 29/150
+    15/15 [==============================] - 2s 159ms/step - loss: 0.5220 - accuracy: 0.8479 - mae: 0.0787 - val_loss: 0.7014 - val_accuracy: 0.8083 - val_mae: 0.0937
+    Epoch 30/150
+    15/15 [==============================] - 2s 151ms/step - loss: 0.4287 - accuracy: 0.8940 - mae: 0.0696 - val_loss: 0.7311 - val_accuracy: 0.8096 - val_mae: 0.0813
+    Epoch 31/150
+    15/15 [==============================] - 1s 99ms/step - loss: 0.4063 - accuracy: 0.8964 - mae: 0.0608 - val_loss: 0.8839 - val_accuracy: 0.7876 - val_mae: 0.0877
+    Epoch 32/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.4043 - accuracy: 0.8958 - mae: 0.0590 - val_loss: 0.7878 - val_accuracy: 0.8144 - val_mae: 0.0758
+    Epoch 33/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.4065 - accuracy: 0.8991 - mae: 0.0537 - val_loss: 0.7751 - val_accuracy: 0.8069 - val_mae: 0.0765
+    Epoch 34/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.4170 - accuracy: 0.8896 - mae: 0.0581 - val_loss: 0.7802 - val_accuracy: 0.8300 - val_mae: 0.0729
+    Epoch 35/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.4041 - accuracy: 0.8898 - mae: 0.0584 - val_loss: 0.6219 - val_accuracy: 0.8646 - val_mae: 0.0634
+    Epoch 36/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.3935 - accuracy: 0.9030 - mae: 0.0551 - val_loss: 0.7617 - val_accuracy: 0.8144 - val_mae: 0.0794
+    Epoch 37/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.3796 - accuracy: 0.9010 - mae: 0.0552 - val_loss: 0.6744 - val_accuracy: 0.8453 - val_mae: 0.0723
+    Epoch 38/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.3253 - accuracy: 0.9282 - mae: 0.0467 - val_loss: 0.7372 - val_accuracy: 0.8392 - val_mae: 0.0637
+    Epoch 39/150
+    15/15 [==============================] - 2s 136ms/step - loss: 0.3485 - accuracy: 0.9105 - mae: 0.0468 - val_loss: 0.5014 - val_accuracy: 0.8711 - val_mae: 0.0583
+    Epoch 40/150
+    15/15 [==============================] - 1s 96ms/step - loss: 0.3337 - accuracy: 0.9019 - mae: 0.0483 - val_loss: 0.4757 - val_accuracy: 0.8935 - val_mae: 0.0507
+    Epoch 41/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.3460 - accuracy: 0.9151 - mae: 0.0471 - val_loss: 0.6437 - val_accuracy: 0.8551 - val_mae: 0.0598
+    Epoch 42/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.3026 - accuracy: 0.9340 - mae: 0.0383 - val_loss: 0.4579 - val_accuracy: 0.9013 - val_mae: 0.0425
+    Epoch 43/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2592 - accuracy: 0.9421 - mae: 0.0347 - val_loss: 0.4553 - val_accuracy: 0.9087 - val_mae: 0.0409
+    Epoch 44/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2548 - accuracy: 0.9429 - mae: 0.0313 - val_loss: 0.4442 - val_accuracy: 0.9036 - val_mae: 0.0415
+    Epoch 45/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2457 - accuracy: 0.9438 - mae: 0.0321 - val_loss: 0.4568 - val_accuracy: 0.8985 - val_mae: 0.0414
+    Epoch 46/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.2571 - accuracy: 0.9366 - mae: 0.0321 - val_loss: 0.4346 - val_accuracy: 0.9016 - val_mae: 0.0402
+    Epoch 47/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2467 - accuracy: 0.9380 - mae: 0.0321 - val_loss: 0.4238 - val_accuracy: 0.9080 - val_mae: 0.0415
+    Epoch 48/150
+    15/15 [==============================] - 1s 94ms/step - loss: 0.2384 - accuracy: 0.9467 - mae: 0.0298 - val_loss: 0.4695 - val_accuracy: 0.8972 - val_mae: 0.0401
+    Epoch 49/150
+    15/15 [==============================] - 2s 138ms/step - loss: 0.2502 - accuracy: 0.9427 - mae: 0.0302 - val_loss: 0.4472 - val_accuracy: 0.9023 - val_mae: 0.0427
+    Epoch 50/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2379 - accuracy: 0.9442 - mae: 0.0313 - val_loss: 0.4449 - val_accuracy: 0.9026 - val_mae: 0.0398
+    Epoch 51/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2243 - accuracy: 0.9495 - mae: 0.0278 - val_loss: 0.4198 - val_accuracy: 0.9036 - val_mae: 0.0386
+    Epoch 52/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2316 - accuracy: 0.9463 - mae: 0.0310 - val_loss: 0.4412 - val_accuracy: 0.9057 - val_mae: 0.0416
+    Epoch 53/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2232 - accuracy: 0.9497 - mae: 0.0282 - val_loss: 0.4324 - val_accuracy: 0.9067 - val_mae: 0.0369
+    Epoch 54/150
+    15/15 [==============================] - 1s 82ms/step - loss: 0.2153 - accuracy: 0.9506 - mae: 0.0261 - val_loss: 0.4514 - val_accuracy: 0.9043 - val_mae: 0.0390
+    Epoch 55/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2143 - accuracy: 0.9509 - mae: 0.0270 - val_loss: 0.4450 - val_accuracy: 0.9067 - val_mae: 0.0375
+    Epoch 56/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2156 - accuracy: 0.9497 - mae: 0.0264 - val_loss: 0.4550 - val_accuracy: 0.9030 - val_mae: 0.0389
+    Epoch 57/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2095 - accuracy: 0.9490 - mae: 0.0272 - val_loss: 0.4541 - val_accuracy: 0.9084 - val_mae: 0.0382
+    Epoch 58/150
+    15/15 [==============================] - 2s 136ms/step - loss: 0.2242 - accuracy: 0.9490 - mae: 0.0261 - val_loss: 0.4783 - val_accuracy: 0.8979 - val_mae: 0.0392
+    Epoch 59/150
+    15/15 [==============================] - 1s 82ms/step - loss: 0.2251 - accuracy: 0.9446 - mae: 0.0293 - val_loss: 0.4456 - val_accuracy: 0.9084 - val_mae: 0.0394
+    Epoch 60/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2176 - accuracy: 0.9490 - mae: 0.0277 - val_loss: 0.4493 - val_accuracy: 0.9063 - val_mae: 0.0388
+    Epoch 61/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2146 - accuracy: 0.9471 - mae: 0.0286 - val_loss: 0.4274 - val_accuracy: 0.9074 - val_mae: 0.0391
+    Epoch 62/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2043 - accuracy: 0.9525 - mae: 0.0264 - val_loss: 0.4783 - val_accuracy: 0.9063 - val_mae: 0.0398
+    Epoch 63/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2471 - accuracy: 0.9324 - mae: 0.0339 - val_loss: 0.5030 - val_accuracy: 0.8965 - val_mae: 0.0413
+    Epoch 64/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2552 - accuracy: 0.9464 - mae: 0.0278 - val_loss: 0.4762 - val_accuracy: 0.8928 - val_mae: 0.0400
+    Epoch 65/150
+    15/15 [==============================] - 1s 79ms/step - loss: 0.2333 - accuracy: 0.9406 - mae: 0.0308 - val_loss: 0.4211 - val_accuracy: 0.8972 - val_mae: 0.0409
+    Epoch 66/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2110 - accuracy: 0.9478 - mae: 0.0301 - val_loss: 0.3416 - val_accuracy: 0.9084 - val_mae: 0.0382
+    Epoch 67/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.2026 - accuracy: 0.9516 - mae: 0.0277 - val_loss: 0.3924 - val_accuracy: 0.9104 - val_mae: 0.0358
+    Epoch 68/150
+    15/15 [==============================] - 1s 94ms/step - loss: 0.1950 - accuracy: 0.9544 - mae: 0.0255 - val_loss: 0.4224 - val_accuracy: 0.9111 - val_mae: 0.0360
+    Epoch 69/150
+    15/15 [==============================] - 1s 83ms/step - loss: 0.1949 - accuracy: 0.9524 - mae: 0.0256 - val_loss: 0.4251 - val_accuracy: 0.9131 - val_mae: 0.0351
+    Epoch 70/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1944 - accuracy: 0.9527 - mae: 0.0253 - val_loss: 0.4577 - val_accuracy: 0.9118 - val_mae: 0.0358
+    Epoch 71/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1929 - accuracy: 0.9540 - mae: 0.0253 - val_loss: 0.4227 - val_accuracy: 0.9175 - val_mae: 0.0337
+    Epoch 72/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.1916 - accuracy: 0.9525 - mae: 0.0250 - val_loss: 0.4578 - val_accuracy: 0.9135 - val_mae: 0.0354
+    Epoch 73/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.1939 - accuracy: 0.9516 - mae: 0.0253 - val_loss: 0.4773 - val_accuracy: 0.9060 - val_mae: 0.0377
+    Epoch 74/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1921 - accuracy: 0.9514 - mae: 0.0265 - val_loss: 0.4037 - val_accuracy: 0.9179 - val_mae: 0.0349
+    Epoch 75/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1858 - accuracy: 0.9557 - mae: 0.0242 - val_loss: 0.3783 - val_accuracy: 0.9091 - val_mae: 0.0347
+    Epoch 76/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.1931 - accuracy: 0.9523 - mae: 0.0256 - val_loss: 0.4023 - val_accuracy: 0.9196 - val_mae: 0.0347
+    Epoch 77/150
+    15/15 [==============================] - 1s 95ms/step - loss: 0.2376 - accuracy: 0.9514 - mae: 0.0267 - val_loss: 0.3614 - val_accuracy: 0.9114 - val_mae: 0.0347
+    Epoch 78/150
+    15/15 [==============================] - 2s 139ms/step - loss: 0.1876 - accuracy: 0.9538 - mae: 0.0262 - val_loss: 0.4354 - val_accuracy: 0.9077 - val_mae: 0.0373
+    Epoch 79/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1887 - accuracy: 0.9536 - mae: 0.0247 - val_loss: 0.3902 - val_accuracy: 0.9145 - val_mae: 0.0354
+    Epoch 80/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.2021 - accuracy: 0.9490 - mae: 0.0290 - val_loss: 0.4266 - val_accuracy: 0.9057 - val_mae: 0.0398
+    Epoch 81/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.2257 - accuracy: 0.9436 - mae: 0.0287 - val_loss: 0.5277 - val_accuracy: 0.8945 - val_mae: 0.0411
+    Epoch 82/150
+    15/15 [==============================] - 1s 82ms/step - loss: 0.2118 - accuracy: 0.9459 - mae: 0.0287 - val_loss: 0.5147 - val_accuracy: 0.9070 - val_mae: 0.0398
+    Epoch 83/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1981 - accuracy: 0.9486 - mae: 0.0284 - val_loss: 0.3371 - val_accuracy: 0.9169 - val_mae: 0.0340
+    Epoch 84/150
+    15/15 [==============================] - 1s 88ms/step - loss: 0.2201 - accuracy: 0.9429 - mae: 0.0309 - val_loss: 0.4065 - val_accuracy: 0.9145 - val_mae: 0.0413
+    Epoch 85/150
+    15/15 [==============================] - 1s 81ms/step - loss: 0.1957 - accuracy: 0.9506 - mae: 0.0307 - val_loss: 0.4394 - val_accuracy: 0.9091 - val_mae: 0.0386
+    Epoch 86/150
+    15/15 [==============================] - 1s 80ms/step - loss: 0.1982 - accuracy: 0.9426 - mae: 0.0275 - val_loss: 0.5543 - val_accuracy: 0.8897 - val_mae: 0.0432
+    Epoch 87/150
+    14/15 [===========================>..] - ETA: 0s - loss: 0.2228 - accuracy: 0.9393 - mae: 0.0309
+    Reached 92.0% validation accuracy. Stopping training.
+    15/15 [==============================] - 1s 96ms/step - loss: 0.2238 - accuracy: 0.9389 - mae: 0.0312 - val_loss: 0.3636 - val_accuracy: 0.9209 - val_mae: 0.0389
+
+
+## Plot Mean Absolute Error (MAE) and Loss During Training
+
+
+```python
+# Get mae and loss from history log
+mae = history.history['mae']
+loss = history.history['loss']
+
+# Get number of epochs
+epochs = range(len(loss))
+
+# Plotting the full graph
+plot_series_dual_y(
+    x=epochs,
+    y1=mae,
+    y2=loss,
+    xlabel='Epochs',
+    ylabel1='MAE',
+    ylabel2='Loss',
+    legend1='MAE',
+    legend2='Loss',
+    title='MAE and Loss across Epochs',
+    filename='mae_and_loss_model1.png')
+
+"""Plotting the last 80% of epochs. This is done because plotting the first 20%
+of epochs reduces the resolution of the graph for the latter 80%"""
+zoom_split = int(len(epochs) * 0.2)
+epochs_zoom = epochs[zoom_split:]
+mae_zoom = mae[zoom_split:]
+loss_zoom = loss[zoom_split:]
+
+plot_series_dual_y(
+    x=epochs_zoom,
+    y1=mae_zoom,
+    y2=loss_zoom,
+    xlabel='Epochs',
+    ylabel1='MAE',
+    ylabel2='Loss',
+    legend1='MAE',
+    legend2='Loss',
+    title='MAE and Loss across the last 80% of Epochs',
+    filename='mae_and_loss_last_80_percent_model1.png'
+)
+```
+
+
+    
+![png](LSTM_new_files/LSTM_new_24_0.png)
+    
+
+
+
+    
+![png](LSTM_new_files/LSTM_new_24_1.png)
+    
+
+
+## Monitor MAE and Loss in Training and Validation Data for any discrepancies
+
+
+```python
+#%matplotlib inline
+plot_training_validation_metrics(history, "Training and Validation progress over epochs", filename="training_validation_metrics_model1.png")
+```
+
+
+    
+![png](LSTM_new_files/LSTM_new_26_0.png)
+    
 
 
 
 ```python
-sess.close()
+# # Extract the metrics from the history object
+# train_mae = np.array(history.history['mae'])
+# train_loss = np.array(history.history['loss'])
+# val_mae = np.array(history.history['val_mae'])
+# val_loss = np.array(history.history['val_loss'])
+
+# # Stack them into a 2D array
+# metrics_array = np.vstack([train_mae, train_loss, val_mae, val_loss])
+
+# # If you want to transpose the array so that each row corresponds to an epoch and each column to a metric, you can do:
+# metrics_array = metrics_array.T
+
+# # print(metrics_array)
+
 ```
 
+## Generate Classification Metrics to Determine Performance and Graph Confusion Matrix
+
+
+```python
+# Test the functions
+print_classification_metrics(X_test, y_test_oh, model)
+plot_normalized_confusion_matrix(X_test, y_test_oh, model, LABELS)
+```
+
+    93/93 [==============================] - 1s 6ms/step
+    Testing Accuracy: 92.09365456396336%
+    Precision: 92.16791653094502%
+    Recall: 92.09365456396336%
+    F1 Score: 92.073437392551%
+    93/93 [==============================] - 1s 5ms/step
+
+
+
+    
+![png](LSTM_new_files/LSTM_new_29_1.png)
+    
+
+
+### (Authored by Guillaume Chevalier discussing his model)
 ## Conclusion
 
 Outstandingly, **the final accuracy is of 91%**! And it can peak to values such as 93.25%, at some moments of luck during the training, depending on how the neural network's weights got initialized at the start of the training, randomly.
@@ -616,9 +1009,9 @@ I also tried my code without the gyroscope, using only the 3D accelerometer's 6 
 
 ## Improvements
 
-In [another open-source repository of mine](https://github.com/guillaume-chevalier/HAR-stacked-residual-bidir-LSTMs), the accuracy is pushed up to nearly 94% using a special deep LSTM architecture which combines the concepts of bidirectional RNNs, residual connections, and stacked cells. This architecture is also tested on another similar activity dataset. It resembles the nice architecture used in "[Google’s Neural Machine Translation System: Bridging the Gap between Human and Machine Translation](https://arxiv.org/pdf/1609.08144.pdf)", without an attention mechanism, and with just the encoder part - as a "many to one" architecture instead of a "many to many" to be adapted to the Human Activity Recognition (HAR) problem. I also worked more on the problem and came up with the [LARNN](https://github.com/guillaume-chevalier/Linear-Attention-Recurrent-Neural-Network), however it's complicated for just a little gain. Thus the current, original activity recognition project is simply better to use for its simplicity. We've also coded a [non-deep learning machine learning pipeline](https://github.com/Neuraxio/Kata-Clean-Machine-Learning-From-Dirty-Code) on the same datasets using classical featurization techniques and older machine learning algorithms.
+In [another open-source repository of mine](https://github.com/guillaume-chevalier/HAR-stacked-residual-bidir-LSTMs), the accuracy is pushed up to nearly 94% using a special deep LSTM architecture which combines the concepts of bidirectional RNNs, residual connections, and stacked cells. This architecture is also tested on another similar activity dataset. It resembles the nice architecture used in "[Google’s Neural Machine Translation System: Bridging the Gap between Human and Machine Translation](https://arxiv.org/pdf/1609.08144.pdf)", without an attention mechanism, and with just the encoder part - as a "many to one" architecture instead of a "many to many" to be adapted to the Human Activity Recognition (HAR) problem. I also worked more on the problem and came up with the [LARNN](https://github.com/guillaume-chevalier/Linear-Attention-Recurrent-Neural-Network), however it's complicated for just a little gain. Thus the current, original activity recognition project is simply better to use for its outstanding simplicity.
 
-If you want to learn more about deep learning, I have also built a list of the learning ressources for deep learning which have revealed to be the most useful to me [here](https://github.com/guillaume-chevalier/Awesome-Deep-Learning-Resources). 
+If you want to learn more about deep learning, I have also built a list of the learning ressources for deep learning which have revealed to be the most useful to me [here](https://github.com/guillaume-chevalier/Awesome-Deep-Learning-Resources).
 
 
 ## References
@@ -626,7 +1019,6 @@ If you want to learn more about deep learning, I have also built a list of the l
 The [dataset](https://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones) can be found on the UCI Machine Learning Repository:
 
 > Davide Anguita, Alessandro Ghio, Luca Oneto, Xavier Parra and Jorge L. Reyes-Ortiz. A Public Domain Dataset for Human Activity Recognition Using Smartphones. 21th European Symposium on Artificial Neural Networks, Computational Intelligence and Machine Learning, ESANN 2013. Bruges, Belgium 24-26 April 2013.
-
 
 ## Citation
 
@@ -637,7 +1029,7 @@ Copyright (c) 2016 Guillaume Chevalier. To cite my code, you can point to the UR
 
 My code is available for free and even for private usage for anyone under the [MIT License](https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition/blob/master/LICENSE), however I ask to cite for using the code.
 
-Here is the BibTeX citation code: 
+Here is the BibTeX citation code:
 ```
 @misc{chevalier2016lstms,
   title={LSTMs for human activity recognition},
@@ -646,34 +1038,16 @@ Here is the BibTeX citation code:
 }
 ```
 
-I've also published a second paper, with contributors, regarding a [second iteration as an improvement of this work](https://github.com/guillaume-chevalier/HAR-stacked-residual-bidir-LSTMs), with deeper neural networks. The paper is available on [arXiv](https://arxiv.org/abs/1708.08989). Here is the BibTeX citation code for this newer piece of work based on this project: 
-```
-@article{DBLP:journals/corr/abs-1708-08989,
-  author    = {Yu Zhao and
-               Rennong Yang and
-               Guillaume Chevalier and
-               Maoguo Gong},
-  title     = {Deep Residual Bidir-LSTM for Human Activity Recognition Using Wearable
-               Sensors},
-  journal   = {CoRR},
-  volume    = {abs/1708.08989},
-  year      = {2017},
-  url       = {http://arxiv.org/abs/1708.08989},
-  archivePrefix = {arXiv},
-  eprint    = {1708.08989},
-  timestamp = {Mon, 13 Aug 2018 16:46:48 +0200},
-  biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1708-08989},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
-}
-```
-
 ## Extra links
 
 ### Connect with me
 
-- [GitHub](https://github.com/guillaume-chevalier/)
 - [LinkedIn](https://ca.linkedin.com/in/chevalierg)
+- [Twitter](https://twitter.com/guillaume_che)
+- [GitHub](https://github.com/guillaume-chevalier/)
+- [Quora](https://www.quora.com/profile/Guillaume-Chevalier-2)
 - [YouTube](https://www.youtube.com/c/GuillaumeChevalier)
+- [Dev/Consulting](http://www.neuraxio.com/en/)
 
 ### Liked this project? Did it help you? Leave a [star](https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition/stargazers), [fork](https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition/network/members) and share the love!
 
@@ -694,8 +1068,194 @@ This activity recognition project has been seen in:
 !mv LSTM.md README.md
 ```
 
-    [NbConvertApp] Converting notebook LSTM.ipynb to markdown
-    [NbConvertApp] Support files will be in LSTM_files/
-    [NbConvertApp] Making directory LSTM_files
-    [NbConvertApp] Making directory LSTM_files
-    [NbConvertApp] Writing 38654 bytes to LSTM.md
+    [NbConvertApp] WARNING | pattern 'LSTM.ipynb' matched no files
+    This application is used to convert notebook files (*.ipynb)
+            to various other formats.
+    
+            WARNING: THE COMMANDLINE INTERFACE MAY CHANGE IN FUTURE RELEASES.
+    
+    Options
+    =======
+    The options below are convenience aliases to configurable class-options,
+    as listed in the "Equivalent to" description-line of the aliases.
+    To see all configurable class-options for some <cmd>, use:
+        <cmd> --help-all
+    
+    --debug
+        set log level to logging.DEBUG (maximize logging output)
+        Equivalent to: [--Application.log_level=10]
+    --show-config
+        Show the application's configuration (human-readable format)
+        Equivalent to: [--Application.show_config=True]
+    --show-config-json
+        Show the application's configuration (json format)
+        Equivalent to: [--Application.show_config_json=True]
+    --generate-config
+        generate default config file
+        Equivalent to: [--JupyterApp.generate_config=True]
+    -y
+        Answer yes to any questions instead of prompting.
+        Equivalent to: [--JupyterApp.answer_yes=True]
+    --execute
+        Execute the notebook prior to export.
+        Equivalent to: [--ExecutePreprocessor.enabled=True]
+    --allow-errors
+        Continue notebook execution even if one of the cells throws an error and include the error message in the cell output (the default behaviour is to abort conversion). This flag is only relevant if '--execute' was specified, too.
+        Equivalent to: [--ExecutePreprocessor.allow_errors=True]
+    --stdin
+        read a single notebook file from stdin. Write the resulting notebook with default basename 'notebook.*'
+        Equivalent to: [--NbConvertApp.from_stdin=True]
+    --stdout
+        Write notebook output to stdout instead of files.
+        Equivalent to: [--NbConvertApp.writer_class=StdoutWriter]
+    --inplace
+        Run nbconvert in place, overwriting the existing notebook (only
+                relevant when converting to notebook format)
+        Equivalent to: [--NbConvertApp.use_output_suffix=False --NbConvertApp.export_format=notebook --FilesWriter.build_directory=]
+    --clear-output
+        Clear output of current file and save in place,
+                overwriting the existing notebook.
+        Equivalent to: [--NbConvertApp.use_output_suffix=False --NbConvertApp.export_format=notebook --FilesWriter.build_directory= --ClearOutputPreprocessor.enabled=True]
+    --no-prompt
+        Exclude input and output prompts from converted document.
+        Equivalent to: [--TemplateExporter.exclude_input_prompt=True --TemplateExporter.exclude_output_prompt=True]
+    --no-input
+        Exclude input cells and output prompts from converted document.
+                This mode is ideal for generating code-free reports.
+        Equivalent to: [--TemplateExporter.exclude_output_prompt=True --TemplateExporter.exclude_input=True --TemplateExporter.exclude_input_prompt=True]
+    --allow-chromium-download
+        Whether to allow downloading chromium if no suitable version is found on the system.
+        Equivalent to: [--WebPDFExporter.allow_chromium_download=True]
+    --disable-chromium-sandbox
+        Disable chromium security sandbox when converting to PDF..
+        Equivalent to: [--WebPDFExporter.disable_sandbox=True]
+    --show-input
+        Shows code input. This flag is only useful for dejavu users.
+        Equivalent to: [--TemplateExporter.exclude_input=False]
+    --embed-images
+        Embed the images as base64 dataurls in the output. This flag is only useful for the HTML/WebPDF/Slides exports.
+        Equivalent to: [--HTMLExporter.embed_images=True]
+    --sanitize-html
+        Whether the HTML in Markdown cells and cell outputs should be sanitized..
+        Equivalent to: [--HTMLExporter.sanitize_html=True]
+    --log-level=<Enum>
+        Set the log level by value or name.
+        Choices: any of [0, 10, 20, 30, 40, 50, 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL']
+        Default: 30
+        Equivalent to: [--Application.log_level]
+    --config=<Unicode>
+        Full path of a config file.
+        Default: ''
+        Equivalent to: [--JupyterApp.config_file]
+    --to=<Unicode>
+        The export format to be used, either one of the built-in formats
+                ['asciidoc', 'custom', 'html', 'latex', 'markdown', 'notebook', 'pdf', 'python', 'rst', 'script', 'slides', 'webpdf']
+                or a dotted object name that represents the import path for an
+                ``Exporter`` class
+        Default: ''
+        Equivalent to: [--NbConvertApp.export_format]
+    --template=<Unicode>
+        Name of the template to use
+        Default: ''
+        Equivalent to: [--TemplateExporter.template_name]
+    --template-file=<Unicode>
+        Name of the template file to use
+        Default: None
+        Equivalent to: [--TemplateExporter.template_file]
+    --theme=<Unicode>
+        Template specific theme(e.g. the name of a JupyterLab CSS theme distributed
+        as prebuilt extension for the lab template)
+        Default: 'light'
+        Equivalent to: [--HTMLExporter.theme]
+    --sanitize_html=<Bool>
+        Whether the HTML in Markdown cells and cell outputs should be sanitized.This
+        should be set to True by nbviewer or similar tools.
+        Default: False
+        Equivalent to: [--HTMLExporter.sanitize_html]
+    --writer=<DottedObjectName>
+        Writer class used to write the
+                                            results of the conversion
+        Default: 'FilesWriter'
+        Equivalent to: [--NbConvertApp.writer_class]
+    --post=<DottedOrNone>
+        PostProcessor class used to write the
+                                            results of the conversion
+        Default: ''
+        Equivalent to: [--NbConvertApp.postprocessor_class]
+    --output=<Unicode>
+        overwrite base name use for output files.
+                    can only be used when converting one notebook at a time.
+        Default: ''
+        Equivalent to: [--NbConvertApp.output_base]
+    --output-dir=<Unicode>
+        Directory to write output(s) to. Defaults
+                                      to output to the directory of each notebook. To recover
+                                      previous default behaviour (outputting to the current
+                                      working directory) use . as the flag value.
+        Default: ''
+        Equivalent to: [--FilesWriter.build_directory]
+    --reveal-prefix=<Unicode>
+        The URL prefix for reveal.js (version 3.x).
+                This defaults to the reveal CDN, but can be any url pointing to a copy
+                of reveal.js.
+                For speaker notes to work, this must be a relative path to a local
+                copy of reveal.js: e.g., "reveal.js".
+                If a relative path is given, it must be a subdirectory of the
+                current directory (from which the server is run).
+                See the usage documentation
+                (https://nbconvert.readthedocs.io/en/latest/usage.html#reveal-js-html-slideshow)
+                for more details.
+        Default: ''
+        Equivalent to: [--SlidesExporter.reveal_url_prefix]
+    --nbformat=<Enum>
+        The nbformat version to write.
+                Use this to downgrade notebooks.
+        Choices: any of [1, 2, 3, 4]
+        Default: 4
+        Equivalent to: [--NotebookExporter.nbformat_version]
+    
+    Examples
+    --------
+    
+        The simplest way to use nbconvert is
+    
+                > jupyter nbconvert mynotebook.ipynb --to html
+    
+                Options include ['asciidoc', 'custom', 'html', 'latex', 'markdown', 'notebook', 'pdf', 'python', 'rst', 'script', 'slides', 'webpdf'].
+    
+                > jupyter nbconvert --to latex mynotebook.ipynb
+    
+                Both HTML and LaTeX support multiple output templates. LaTeX includes
+                'base', 'article' and 'report'.  HTML includes 'basic', 'lab' and
+                'classic'. You can specify the flavor of the format used.
+    
+                > jupyter nbconvert --to html --template lab mynotebook.ipynb
+    
+                You can also pipe the output to stdout, rather than a file
+    
+                > jupyter nbconvert mynotebook.ipynb --stdout
+    
+                PDF is generated via latex
+    
+                > jupyter nbconvert mynotebook.ipynb --to pdf
+    
+                You can get (and serve) a Reveal.js-powered slideshow
+    
+                > jupyter nbconvert myslides.ipynb --to slides --post serve
+    
+                Multiple notebooks can be given at the command line in a couple of
+                different ways:
+    
+                > jupyter nbconvert notebook*.ipynb
+                > jupyter nbconvert notebook1.ipynb notebook2.ipynb
+    
+                or you can specify the notebooks list in a config file, containing::
+    
+                    c.NbConvertApp.notebooks = ["my_notebook.ipynb"]
+    
+                > jupyter nbconvert --config mycfg.py
+    
+    To see all available configurables, use `--help-all`.
+    
+    mv: cannot stat 'LSTM.md': No such file or directory
+
